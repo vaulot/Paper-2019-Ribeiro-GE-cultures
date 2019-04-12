@@ -1,0 +1,202 @@
+---
+title: "GE culture paper"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+
+```{r knitr_init, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=FALSE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+
+
+# Comments
+* A Rmd file must be end as .Rmd and not rmd
+* Do not use data.table and dplyr, just use one to unify the syntax.  I recommend dplyr by far
+* Do not use plyr which is an old library and superseded by r
+* R chunks must begin by ```{r} to be recognized and not ```r
+* Use readr library
+* No need to export from Excel to csv.  Use the readxl package (if you read from csv or tsv, use readr)
+* Do not use factors as much as possible, this is not really useful
+
+# Figures for the paper
+## Load libraries
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+library(readxl)
+library(stringr)
+```
+
+
+## Import csv
+
+```{r}
+# culturesGE <- fread("culturesGE.csv", stringsAsFactors = TRUE)
+
+culturesGE  <- readxl::read_excel(path=file_main, sheet="Data S1")
+```
+## Order categorical data in "class"
+
+```{r}
+culturesGE$class <- factor(culturesGE$class, levels = ordered(c("Bacillariophyceae", "Bacillariophyta_X", "Coscinodiscophyceae", "Mediophyceae", "Chlorophyceae", "Mamiellophyceae", "Prasinophyceae", "Cryptophyceae", "Coccolithophyceae", "Prymnesiophyceae", "Dictyochophyceae", "Dinophyceae", "Chrysophyceae", "Pelagophyceae")))
+```
+
+## Separate by diatom and non-diatom
+
+```{r}
+culturesGE_diatoms <- culturesGE %>% dplyr::filter(group=="diatom")
+
+culturesGE_non_diatoms <- culturesGE %>%  dplyr::filter(group=="non diatom")
+```
+
+## Create palette
+
+```{r}
+GE_class_pallette <- c(Bacillariophyceae = "#660066", 
+                       Bacillariophyta_X = "#ff748c", 
+                       Coscinodiscophyceae = "#08020d", 
+                       Mediophyceae = "#d896ff", 
+                       Chlorophyceae = "#3cb44b", 
+                       Mamiellophyceae = "#004c00", 
+                       Prasinophyceae = "#74c476", 
+                       Cryptophyceae = "#F0E442", 
+                       Coccolithophyceae = "#00004c", 
+                       Prymnesiophyceae = "#2b8cbe", 
+                       Dictyochophyceae = "#de2d26", 
+                       Dinophyceae = "#800000", 
+                       Chrysophyceae = "#fcae91", 
+                       Pelagophyceae = "#fb6a4a")
+```
+
+## Plot bar graphs Isolation
+
+```{r}
+theme_set(theme_bw())
+
+isolation_method_plot_diatoms <- 
+  ggplot(culturesGE_diatoms, aes(isolation_method)) +
+  geom_bar(aes(fill=class), width = 0.5) + 
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1, size=12)) + 
+  facet_wrap(~ sampling_substrate) + 
+  xlab("Isolation method") +
+  ylab("Number of strains") +
+  scale_fill_manual(values = GE_class_pallette)
+
+isolation_method_plot_diatoms
+  
+isolation_method_plot_non_diatoms <- 
+  ggplot(culturesGE_non_diatoms, aes(isolation_method)) + 
+  geom_bar(aes(fill=class), width = 0.5) + 
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1, size=12)) + 
+  facet_wrap(~ sampling_substrate) + 
+  xlab("Isolation method") +
+  ylab("Number of strains") +
+  scale_fill_manual(values = GE_class_pallette)
+
+isolation_method_plot_non_diatoms
+```
+
+## Filter by Amundsen samples
+
+```{r}
+culturesGE_AMUNDSEN <- culturesGE %>%
+  filter(sampling_cruise=="Green Edge Amundsen")
+```
+
+## Plot bar graphs Amundsen
+
+
+```{r fig.height=10, fig.width=10}
+isolation_method_AM_plot_station <- ggplot(culturesGE_AMUNDSEN, aes(isolation_method)) + 
+  geom_bar(aes(fill=class), width = 0.7) + 
+  theme(axis.text.x = element_text(angle=65, vjust=1, hjust=1, size=10)) + 
+  facet_wrap(~ sampling_station) + 
+  xlab("Isolation method") +
+  ylab("Number of strains") +
+  scale_fill_manual(values = GE_class_pallette)
+
+isolation_method_AM_plot_station 
+
+isolation_method_AM_plot_depth <-  ggplot(culturesGE_AMUNDSEN, aes(isolation_method))+
+  geom_bar(aes(fill=class), width = 0.7) + 
+  theme(axis.text.x = element_text(angle=65, vjust=1, hjust=1, size=10)) + 
+  facet_wrap(~ sampling_depth_values) + 
+  xlab("Isolation method") +
+  ylab("Number of strains") +
+  scale_fill_manual(values = GE_class_pallette)
+
+isolation_method_AM_plot_depth
+```
+
+# Tables in Latex format
+
+* Use the xtable package
+
+Note : italics are done by encosing between {}
+
+## Load libraries
+
+```{r}
+
+library(xtable)
+```
+
+## Define function to format the tables
+```{r, eval=FALSE}
+sanitize.italics <- function(str) {
+  str_replace_all(str, c("_" = "\\\\_", 
+                         "\\{" = "\\\\textit{", 
+                         "Â°" = "\\\\degree",
+                         "X" = "\\\\cellcolor{gray}"))
+}
+
+
+path_table <- function(file_table) {str_c("../overleaf_paper_ge_cultures_2.0/tables/", file_table)}
+file_main = "GE_cultures_Tables.xlsx"
+```
+
+# Table of genera (Table 1)
+```{r, eval=FALSE}
+table <- readxl::read_excel(path=file_main, sheet="Table 1")
+table <- xtable::xtable(table, label="table:genera", 
+                        caption='Number of strains obtained from water and ice samples for each genus', 
+                        align = c("l", "l", "l", "c", "c"),
+                        digits=0)
+print(table,  scalebox = 0.75, 
+      caption.placement = "top",
+      include.rownames = FALSE, 
+      file=path_table("table_genera.tex"),
+      sanitize.text.function = sanitize.italics)
+```
+
+# Table of authorithies (Table S1)
+```{r, eval=FALSE}
+table <- readxl::read_excel(path=file_main, sheet="Table S1")
+table <- xtable::xtable(table, label="table:authorities", 
+                        caption='List of taxonomy authorities', 
+                        align = c("l", "l", "l", "l"),
+                        digits=0)
+print(table,  scalebox = 0.75, 
+      caption.placement = "top",
+      include.rownames = FALSE, 
+      file=path_table("table_authorities.tex"),
+      sanitize.text.function = sanitize.italics)
+```
