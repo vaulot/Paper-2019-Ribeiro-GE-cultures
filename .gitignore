@@ -4,3 +4,9 @@
 .Ruserdata
 archives
 *.geneious
+*_cache
+*_files
+*.html
+GE_cultures_18S.blast.tsv
+GE_cultures_tables _version_1.0.xlsx
+*git*

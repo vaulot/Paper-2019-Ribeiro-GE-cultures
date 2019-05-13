@@ -13,7 +13,7 @@ library(rmdformats)
 
 ## Global options
 options(max.print="75")
-opts_chunk$set(echo=FALSE,
+opts_chunk$set(echo=TRUE,
 	             cache=TRUE,
                prompt=FALSE,
                tidy=TRUE,
@@ -25,7 +25,7 @@ opts_knit$set(width=75)
 
 
 
-# Comments
+# Comments for Catherine
 * A Rmd file must be end as .Rmd and not rmd
 * Do not use data.table and dplyr, just use one to unify the syntax.  I recommend dplyr by far
 * Do not use plyr which is an old library and superseded by r
@@ -34,8 +34,7 @@ opts_knit$set(width=75)
 * No need to export from Excel to csv.  Use the readxl package (if you read from csv or tsv, use readr)
 * Do not use factors as much as possible, this is not really useful
 
-# Figures for the paper
-## Load libraries
+# Load libraries
 
 ```{r}
 library(dplyr)
@@ -43,20 +42,112 @@ library(ggplot2)
 library(RColorBrewer)
 library(readxl)
 library(stringr)
+library(dvutils)
+library(pr2database)
 ```
 
+# Define variables
+```{r}
+file_main = "GE_cultures_Tables.xlsx"
+```
+
+
+
+# BLAST analysis
+
+## Process BLAST file
+
+```{r, eval=FALSE}
+blast_18S_reformat("GE_cultures_18S.blast_pruned.tsv")
+```
+
+## Figures BLAST for the paper
+
+### Import csv
+
+```{r}
+# culturesGE <- fread("culturesGE.csv", stringsAsFactors = TRUE)
+
+culturesGE_Blast  <- readxl::read_excel(path=file_main, sheet="Data S2")
+```
+
+### BLAST figure
+
+```{r}
+GE_class_pallette <- c(Bacillariophyceae = "#660066", 
+                       Bacillariophyta = "#ff748c", 
+                       Coscinodiscophyceae = "#08020d", 
+                       Mediophyceae = "#d896ff", 
+                       Chlorophyceae = "#3cb44b", 
+                       Mamiellophyceae = "#004c00", 
+                       Pyramimonadales = "#74c476", 
+                       Cryptophyceae = "#F0E442", 
+                       Coccolithophyceae = "#00004c", 
+                       Prymnesiophyceae = "#2b8cbe", 
+                       Dictyochophyceae = "#de2d26", 
+                       Dinophyceae = "#800000", 
+                       Chrysophyceae = "#fcae91", 
+                       Pelagophyceae = "#fb6a4a")
+
+  culturesGE_Blast_table <- culturesGE_Blast %>% 
+    mutate (status = case_when (hit_top_pct_identity < 100 ~ "undetected",
+                                hit_cult_pct_identity < 100 ~ "detected - uncultured",
+                                TRUE ~ "cultured")) %>% 
+    group_by(status) %>% 
+    tally()
+  
+    knitr::kable(culturesGE_Blast_table)
+ 
+  ggplot(culturesGE_Blast) + 
+  geom_histogram(aes(x=hit_top_pct_identity), fill= "black", alpha=0.8) +
+  # geom_histogram(aes(x=hit_cult_pct_identity), fill= "blue", alpha=0.3) +
+  xlab("% Identity to top hit")  +
+  scale_x_reverse() 
+  # ggtitle("Red is top hit, blue top hit to culture")
+  
+  culturesGE_Blast <- culturesGE_Blast %>% 
+    mutate(cluster_label = str_c(hit_pr2_division, hit_pr2_class,  sep=" - "))
+  
+  ggplot(culturesGE_Blast, aes(y=hit_cult_pct_identity, 
+                               x=cluster_label, 
+                               color=hit_pr2_class)) +
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(size=2, height=0, width=0.2) +
+  theme_bw() +
+  # stat_summary(fun.y = "mean", colour = "black", size = 2, geom = "point", shape=22) +
+  scale_color_manual(values = GE_class_pallette) +
+  theme(axis.text.y = element_text(angle = 0, hjust = 0, vjust = 0.5)) +
+  ylab("% Identity to best cultured hit") + xlab("") +
+  scale_y_reverse() +
+  scale_x_discrete(limits = rev(levels(as.factor(culturesGE_Blast$cluster_label)))) +
+  coord_flip() +
+  theme(legend.position = "none") 
+  
+
+ ggplot(culturesGE_Blast, aes(x=hit_top_pct_identity, y=hit_cult_pct_identity, color=hit_pr2_class)) + 
+  geom_jitter(size=3, width=0.01, height=0.01)+
+  scale_y_reverse()  +
+  scale_x_reverse() +
+  xlab("% Identity to top hit") + 
+  ylab("% Identity to top culture hit")  +
+  scale_color_manual(values = GE_class_pallette) 
+```
+
+
+# Figures Catherine for the paper
 
 ## Import csv
 
 ```{r}
 # culturesGE <- fread("culturesGE.csv", stringsAsFactors = TRUE)
 
-culturesGE  <- readxl::read_excel(path=file_main, sheet="Data S1")
+culturesGE  <- readxl::read_excel(path=file_main, sheet="Data S1") %>% 
+  mutate(sampling_depth = as.numeric(stringr::str_replace(sampling_depth_values,"m",""))) 
 ```
 ## Order categorical data in "class"
 
 ```{r}
-culturesGE$class <- factor(culturesGE$class, levels = ordered(c("Bacillariophyceae", "Bacillariophyta_X", "Coscinodiscophyceae", "Mediophyceae", "Chlorophyceae", "Mamiellophyceae", "Prasinophyceae", "Cryptophyceae", "Coccolithophyceae", "Prymnesiophyceae", "Dictyochophyceae", "Dinophyceae", "Chrysophyceae", "Pelagophyceae")))
+culturesGE$class <- factor(culturesGE$class, levels = ordered(c("Bacillariophyceae", "Bacillariophyta_X", "Coscinodiscophyceae", "Mediophyceae", "Chlorophyceae", "Mamiellophyceae", "Pyramimonadales", "Cryptophyceae", "Coccolithophyceae", "Prymnesiophyceae", "Dictyochophyceae", "Dinophyceae", "Chrysophyceae", "Pelagophyceae")))
 ```
 
 ## Separate by diatom and non-diatom
@@ -76,7 +167,7 @@ GE_class_pallette <- c(Bacillariophyceae = "#660066",
                        Mediophyceae = "#d896ff", 
                        Chlorophyceae = "#3cb44b", 
                        Mamiellophyceae = "#004c00", 
-                       Prasinophyceae = "#74c476", 
+                       Pyramimonadales = "#74c476", 
                        Cryptophyceae = "#F0E442", 
                        Coccolithophyceae = "#00004c", 
                        Prymnesiophyceae = "#2b8cbe", 
@@ -118,13 +209,14 @@ isolation_method_plot_non_diatoms
 
 ```{r}
 culturesGE_AMUNDSEN <- culturesGE %>%
-  filter(sampling_cruise=="Green Edge Amundsen")
+  filter(sampling_cruise=="Green Edge Amundsen") %>% 
+  tidyr::replace_na(list(sampling_depth= 0))
 ```
 
 ## Plot bar graphs Amundsen
 
 
-```{r fig.height=10, fig.width=10}
+```{r fig.height=6, fig.width=10}
 isolation_method_AM_plot_station <- ggplot(culturesGE_AMUNDSEN, aes(isolation_method)) + 
   geom_bar(aes(fill=class), width = 0.7) + 
   theme(axis.text.x = element_text(angle=65, vjust=1, hjust=1, size=10)) + 
@@ -136,9 +228,10 @@ isolation_method_AM_plot_station <- ggplot(culturesGE_AMUNDSEN, aes(isolation_me
 isolation_method_AM_plot_station 
 
 isolation_method_AM_plot_depth <-  ggplot(culturesGE_AMUNDSEN, aes(isolation_method))+
-  geom_bar(aes(fill=class), width = 0.7) + 
+  geom_bar(aes(fill=class), width = 0.7) +
+  theme_bw() + 
   theme(axis.text.x = element_text(angle=65, vjust=1, hjust=1, size=10)) + 
-  facet_wrap(~ sampling_depth_values) + 
+  facet_wrap(~ cut(sampling_depth, c(0,10,20,50), right=FALSE)) + 
   xlab("Isolation method") +
   ylab("Number of strains") +
   scale_fill_manual(values = GE_class_pallette)
@@ -169,8 +262,8 @@ sanitize.italics <- function(str) {
 }
 
 
-path_table <- function(file_table) {str_c("../overleaf_paper_ge_cultures_2.0/tables/", file_table)}
-file_main = "GE_cultures_Tables.xlsx"
+path_table <- function(file_table) {str_c("../paper_ge_cultures_overleaf_2.0/tables/", file_table)}
+
 ```
 
 # Table of genera (Table 1)
@@ -180,7 +273,7 @@ table <- xtable::xtable(table, label="table:genera",
                         caption='Number of strains obtained from water and ice samples for each genus', 
                         align = c("l", "l", "l", "c", "c"),
                         digits=0)
-print(table,  scalebox = 0.75, 
+print(table,  scalebox = 1, 
       caption.placement = "top",
       include.rownames = FALSE, 
       file=path_table("table_genera.tex"),
